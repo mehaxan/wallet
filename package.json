@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "drizzle-kit migrate && next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
