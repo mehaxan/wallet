@@ -366,6 +366,55 @@ export const itemLoans = pgTable("item_loans", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Credit Cards ─────────────────────────────────────────────────────────────
+export const creditCards = pgTable("credit_cards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bankName: text("bank_name").notNull(),
+  cardName: text("card_name").notNull(),
+  lastFour: text("last_four"),
+  creditLimit: numeric("credit_limit", { precision: 15, scale: 2 }).notNull(),
+  currentBalance: numeric("current_balance", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0"),
+  statementDay: integer("statement_day"),
+  dueDay: integer("due_day"),
+  interestRate: numeric("interest_rate", { precision: 5, scale: 2 }),
+  status: text("status", { enum: ["active", "closed"] })
+    .notNull()
+    .default("active"),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ─── EMIs ─────────────────────────────────────────────────────────────────────
+export const emis = pgTable("emis", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  lenderName: text("lender_name"),
+  principalAmount: numeric("principal_amount", { precision: 15, scale: 2 }).notNull(),
+  emiAmount: numeric("emi_amount", { precision: 15, scale: 2 }).notNull(),
+  totalInstallments: integer("total_installments").notNull(),
+  paidInstallments: integer("paid_installments").notNull().default(0),
+  startDate: date("start_date").notNull(),
+  interestRate: numeric("interest_rate", { precision: 5, scale: 2 }),
+  creditCardId: uuid("credit_card_id").references(() => creditCards.id, {
+    onDelete: "set null",
+  }),
+  status: text("status", { enum: ["active", "completed", "cancelled"] })
+    .notNull()
+    .default("active"),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -378,6 +427,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   categories: many(categories),
   transactions: many(transactions),
   loans: many(loans),
+  creditCards: many(creditCards),
+  emis: many(emis),
   dpsAccounts: many(dpsAccounts),
   investments: many(investments),
   assets: many(assets),
@@ -423,5 +474,18 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   category: one(categories, {
     fields: [transactions.categoryId],
     references: [categories.id],
+  }),
+}));
+
+export const creditCardsRelations = relations(creditCards, ({ one, many }) => ({
+  user: one(users, { fields: [creditCards.userId], references: [users.id] }),
+  emis: many(emis),
+}));
+
+export const emisRelations = relations(emis, ({ one }) => ({
+  user: one(users, { fields: [emis.userId], references: [users.id] }),
+  creditCard: one(creditCards, {
+    fields: [emis.creditCardId],
+    references: [creditCards.id],
   }),
 }));

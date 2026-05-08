@@ -11,6 +11,8 @@ const NAV = [
   { href: "/investments",  icon: "📈", label: "Investments" },
   { href: "/dps",          icon: "💰", label: "DPS & Savings" },
   { href: "/loans",        icon: "📋", label: "Loans" },
+  { href: "/credit-cards", icon: "💳", label: "Credit Cards" },
+  { href: "/emis",         icon: "📅", label: "EMIs" },
   { href: "/assets",       icon: "🏠", label: "Assets" },
   { href: "/networth",     icon: "📉", label: "Net Worth" },
   { href: "/tax",          icon: "🧾", label: "Tax" },
