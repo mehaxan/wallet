@@ -38,8 +38,10 @@ export default function DPSPage() {
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ bankName: "", accountNumber: "", monthlyAmount: "", interestRate: "12", tenureMonths: "60", startDate: new Date().toISOString().slice(0, 10), note: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState("");
+  const [payTarget, setPayTarget] = useState<DPS | null>(null);
+  const [paying, setPaying]   = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +66,19 @@ export default function DPSPage() {
     setSaving(false);
   }
 
+  async function handlePayInstallment(dps: DPS) {
+    setPaying(true);
+    const newTotal = (parseFloat(dps.totalDeposited) + parseFloat(dps.monthlyAmount)).toFixed(2);
+    await fetch(`/api/dps/${dps.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ totalDeposited: newTotal }),
+    });
+    setPayTarget(null);
+    setPaying(false);
+    load();
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("Delete this DPS account?")) return;
     await fetch(`/api/dps/${id}`, { method: "DELETE" });
@@ -86,6 +101,24 @@ export default function DPSPage() {
           + Add DPS
         </button>
       </div>
+
+      {payTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#0e0e1c", border: "1px solid #1e1e38", borderRadius: 16, padding: "28px 32px", width: "100%", maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>💳</div>
+            <h3 style={{ color: "#f1f5f9", margin: "0 0 6px", fontSize: 16 }}>Pay Installment</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 4px" }}>{payTarget.bankName}</p>
+            <p style={{ color: "#a78bfa", fontWeight: 700, fontSize: 22, margin: "8px 0 6px" }}>{formatBDT(payTarget.monthlyAmount)}</p>
+            <p style={{ color: "#475569", fontSize: 12, margin: "0 0 24px" }}>
+              Paid so far: {formatBDT(payTarget.totalDeposited)} → {formatBDT((parseFloat(payTarget.totalDeposited) + parseFloat(payTarget.monthlyAmount)).toFixed(2))}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setPayTarget(null)} style={{ flex: 1, padding: "9px 0", background: "transparent", border: "1px solid #1e1e38", borderRadius: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              <button onClick={() => handlePayInstallment(payTarget)} disabled={paying} style={{ flex: 1, padding: "9px 0", background: "#7c3aed", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{paying ? "Paying…" : "Confirm Pay"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -144,7 +177,7 @@ export default function DPSPage() {
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 16 }}>
-                  {([["Monthly", formatBDT(dps.monthlyAmount)], ["Rate", `${dps.interestRate}%`], ["Tenure", `${dps.tenureMonths}m`], ["At Maturity", formatBDT(dps.maturityAmount)]] as const).map(([label, value]) => (
+                  {([["Monthly", formatBDT(dps.monthlyAmount)], ["Rate", `${dps.interestRate}%`], ["Deposited", formatBDT(dps.totalDeposited)], ["At Maturity", formatBDT(dps.maturityAmount)]] as const).map(([label, value]) => (
                     <div key={label}>
                       <div style={{ color: "#475569", fontSize: 11, marginBottom: 2 }}>{label}</div>
                       <div style={{ color: "#f1f5f9", fontWeight: 600, fontSize: 14 }}>{value}</div>
@@ -160,8 +193,14 @@ export default function DPSPage() {
                   <div style={{ background: "#141428", borderRadius: 4, height: 6, overflow: "hidden" }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: "#7c3aed", borderRadius: 4 }} />
                   </div>
-                  <div style={{ color: "#475569", fontSize: 11, marginTop: 4 }}>{pct}% complete</div>
+                  <div style={{ color: "#475569", fontSize: 11, marginTop: 4 }}>{pct}% complete · {dps.tenureMonths}m tenure</div>
                 </div>
+
+                {dps.status === "active" && (
+                  <button onClick={() => setPayTarget(dps)} style={{ marginTop: 14, width: "100%", padding: "9px 0", background: "#1e1e38", border: "1px solid #7c3aed", borderRadius: 8, color: "#a78bfa", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    💳 Pay {formatBDT(dps.monthlyAmount)} Installment
+                  </button>
+                )}
 
                 {dps.note && <div style={{ color: "#64748b", fontSize: 12, fontStyle: "italic", marginTop: 10 }}>{dps.note}</div>}
               </div>
