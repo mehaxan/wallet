@@ -15,9 +15,36 @@ export async function GET(req: NextRequest) {
     const fiscalYear = url.searchParams.get("fy") ?? getBDFiscalYear();
     const location   = (url.searchParams.get("location") ?? "dhaka") as "dhaka" | "city_corp" | "other";
 
-    // Load tax config
-    const [config] = await db.select().from(taxConfigs).where(eq(taxConfigs.fiscalYear, fiscalYear));
-    if (!config) return apiError(`No tax config for FY ${fiscalYear}`, 404);
+    // Load tax config — auto-seed defaults for BD NBR if missing
+    let [config] = await db.select().from(taxConfigs).where(eq(taxConfigs.fiscalYear, fiscalYear));
+    if (!config) {
+      const DEFAULT_SLABS = [
+        { limit: 350000,  rate: 0  },
+        { limit: 100000,  rate: 5  },
+        { limit: 300000,  rate: 10 },
+        { limit: 400000,  rate: 15 },
+        { limit: 500000,  rate: 20 },
+        { limit: null,    rate: 25 },
+      ];
+      [config] = await db.insert(taxConfigs).values({
+        fiscalYear,
+        slabs: DEFAULT_SLABS,
+        taxFreeThreshold:       "350000",
+        rebateRate:             "15",
+        rebateInvestmentCap:    "1000000",
+        rebateIncomePercent:    "25",
+        minTaxDhaka:            "5000",
+        minTaxCityCorpOther:    "4000",
+        minTaxOther:            "3000",
+        sanchayapatraThreshold: "500000",
+        sanchayapatraTdsRate:   "10",
+        rebateInstruments:      [],
+      }).onConflictDoNothing().returning();
+      if (!config) {
+        // Race condition — re-fetch
+        [config] = await db.select().from(taxConfigs).where(eq(taxConfigs.fiscalYear, fiscalYear));
+      }
+    }
 
     // Gross income: sum of taxable income transactions
     const incomeRows = await db.select({ total: sum(transactions.amount) })
