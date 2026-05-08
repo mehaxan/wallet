@@ -23,8 +23,8 @@ build/
 *.db
 *.sqlite
 
-# Drizzle generated (keep drizzle/ migrations, ignore studio cache)
-drizzle/meta/_journal.json
+# Drizzle studio cache only (keep migrations and journal committed)
+drizzle/meta/*.snapshot
 
 # Logs
 *.log
