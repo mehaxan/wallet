@@ -140,3 +140,8 @@ html, body {
   .stats-grid { grid-template-columns: 1fr !important; }
   .app-main { padding: 72px 12px 24px !important; }
 }
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav { display: flex !important; }
+  .app-main { padding-bottom: 72px !important; }
+}
