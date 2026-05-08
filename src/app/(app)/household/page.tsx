@@ -24,7 +24,7 @@ export default function HouseholdPage() {
     if (res.status === 404) { setData(null); setLoading(false); return; }
     const d = await res.json();
     if (!res.ok) setError(d.error ?? "Failed");
-    else setData(d);
+    else setData(d.household ? d : null);
     setLoading(false);
   }
 

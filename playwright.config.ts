@@ -8,7 +8,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://localhost:3003",
-    headless: true,
+    headless: process.env.HEADED !== "1",
+    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     trace: "retain-on-failure",
@@ -26,7 +27,7 @@ export default defineConfig({
     },
     {
       name: "auth-tests",
-      testMatch: "**/auth.spec.ts",
+      testMatch: ["**/auth.spec.ts", "**/journey.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
   ],
