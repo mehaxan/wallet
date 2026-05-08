@@ -9,7 +9,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3003",
     headless: process.env.HEADED !== "1",
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
+    launchOptions: {
+      slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
+    },
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     trace: "retain-on-failure",
