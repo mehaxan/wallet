@@ -19,8 +19,10 @@ export default function InvestmentsPage() {
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: "stock", name: "", investedAmount: "", currentValue: "", units: "", purchaseDate: new Date().toISOString().slice(0, 10), interestRate: "", brokerName: "", isTaxRebateEligible: false, note: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,6 +31,14 @@ export default function InvestmentsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    await fetch(`/api/investments/${id}`, { method: "DELETE" });
+    setConfirmDelete(null);
+    setDeleting(false);
+    load();
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault(); setError(""); setSaving(true);
@@ -54,6 +64,20 @@ export default function InvestmentsPage() {
         </div>
         <button onClick={() => setShowForm(true)} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ Add Investment</button>
       </div>
+
+      {confirmDelete && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#0e0e1c", border: "1px solid #1e1e38", borderRadius: 16, padding: "28px 32px", width: "100%", maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
+            <h3 style={{ color: "#f1f5f9", margin: "0 0 8px", fontSize: 16 }}>Delete Investment?</h3>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 24px" }}>This cannot be undone.</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: "9px 0", background: "transparent", border: "1px solid #1e1e38", borderRadius: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              <button onClick={() => handleDelete(confirmDelete)} disabled={deleting} style={{ flex: 1, padding: "9px 0", background: "#ef4444", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{deleting ? "Deleting…" : "Delete"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -107,6 +131,7 @@ export default function InvestmentsPage() {
                     <div style={{ color: "#475569", fontSize: 12 }}>{TYPE_LABEL[inv.type]}{inv.brokerName ? ` · ${inv.brokerName}` : ""}</div>
                   </div>
                   {inv.isTaxRebateEligible && <span style={{ marginLeft: "auto", fontSize: 10, background: "#1e3a5f", color: "#60a5fa", borderRadius: 4, padding: "2px 6px" }}>Tax rebate</span>}
+                  <button onClick={() => setConfirmDelete(inv.id)} title="Delete" style={{ marginLeft: inv.isTaxRebateEligible ? 6 : "auto", background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: 16, padding: "2px 4px", borderRadius: 4, lineHeight: 1 }}>🗑️</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div><div style={{ color: "#475569", fontSize: 11 }}>Invested</div><div style={{ color: "#f1f5f9", fontWeight: 600 }}>{formatBDT(inv.investedAmount)}</div></div>
