@@ -12,8 +12,10 @@ const NAV = [
   { href: "/dps",          icon: "💰", label: "DPS & Savings" },
   { href: "/loans",        icon: "📋", label: "Loans" },
   { href: "/assets",       icon: "🏠", label: "Assets" },
+  { href: "/networth",     icon: "📉", label: "Net Worth" },
   { href: "/tax",          icon: "🧾", label: "Tax" },
   { href: "/item-loans",   icon: "📦", label: "Item Loans" },
+  { href: "/household",    icon: "🏠", label: "Household" },
   { href: "/reports",      icon: "📄", label: "Reports" },
 ];
 
