@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,15 +18,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Login failed");
+        setError(data.error ?? "Registration failed");
         return;
       }
 
@@ -38,15 +39,41 @@ export default function LoginPage() {
     }
   }
 
+  const inputStyle = {
+    background: "#141428",
+    border: "1px solid #1e1e38",
+    borderRadius: 8,
+    padding: "10px 14px",
+    color: "#f1f5f9",
+    fontSize: 14,
+    outline: "none",
+    transition: "border-color 0.15s",
+  } as React.CSSProperties;
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#08080f" }}>
       <div style={{ background: "#0e0e1c", border: "1px solid #1e1e38", borderRadius: 16, padding: "40px 48px", width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h1 style={{ color: "#f1f5f9", margin: "0 0 8px", fontSize: 24, fontWeight: 700 }}>Wallet</h1>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>Sign in to your account</p>
+          <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>Create your account</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ color: "#94a3b8", fontSize: 13, fontWeight: 500 }}>Full name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoComplete="name"
+              placeholder="Alex Johnson"
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
+              onBlur={(e) => (e.target.style.borderColor = "#1e1e38")}
+            />
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={{ color: "#94a3b8", fontSize: 13, fontWeight: 500 }}>Email</label>
             <input
@@ -56,16 +83,7 @@ export default function LoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              style={{
-                background: "#141428",
-                border: "1px solid #1e1e38",
-                borderRadius: 8,
-                padding: "10px 14px",
-                color: "#f1f5f9",
-                fontSize: 14,
-                outline: "none",
-                transition: "border-color 0.15s",
-              }}
+              style={inputStyle}
               onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
               onBlur={(e) => (e.target.style.borderColor = "#1e1e38")}
             />
@@ -78,18 +96,10 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              style={{
-                background: "#141428",
-                border: "1px solid #1e1e38",
-                borderRadius: 8,
-                padding: "10px 14px",
-                color: "#f1f5f9",
-                fontSize: 14,
-                outline: "none",
-                transition: "border-color 0.15s",
-              }}
+              autoComplete="new-password"
+              placeholder="Min. 8 characters"
+              minLength={8}
+              style={inputStyle}
               onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
               onBlur={(e) => (e.target.style.borderColor = "#1e1e38")}
             />
@@ -117,14 +127,14 @@ export default function LoginPage() {
               transition: "background 0.15s",
             }}
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
 
         <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 24, marginBottom: 0 }}>
-          Don&apos;t have an account?{" "}
-          <Link href="/register" style={{ color: "#7c3aed", textDecoration: "none", fontWeight: 500 }}>
-            Create one
+          Already have an account?{" "}
+          <Link href="/login" style={{ color: "#7c3aed", textDecoration: "none", fontWeight: 500 }}>
+            Sign in
           </Link>
         </p>
       </div>
