@@ -48,3 +48,8 @@ Thumbs.db
 *.pem
 .turbo/
 tsconfig.tsbuildinfo
+
+# Playwright
+playwright-report/
+test-results/
+tests/e2e/.auth/

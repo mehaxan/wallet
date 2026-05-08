@@ -29,8 +29,20 @@ export default function TaxPage() {
       .then(d => { setSummary(d); setLoading(false); });
   }, [location]);
 
-  if (loading) return <div style={{ color: "#64748b", padding: 40, textAlign: "center" }}>Calculating tax…</div>;
-  if (!summary || ("error" in (summary as object))) return <div style={{ color: "#ef4444", padding: 40 }}>Failed to load tax summary.</div>;
+  if (loading) return (
+    <div>
+      <h1 style={{ color: "#f1f5f9", margin: 0, fontSize: 22, fontWeight: 700 }}>Tax Dashboard</h1>
+      <div style={{ color: "#64748b", padding: 40, textAlign: "center" }}>Calculating tax…</div>
+    </div>
+  );
+  if (!summary || ("error" in (summary as object))) return (
+    <div>
+      <h1 style={{ color: "#f1f5f9", margin: 0, fontSize: 22, fontWeight: 700 }}>Tax Dashboard</h1>
+      <div style={{ color: "#ef4444", padding: 40 }}>
+        No tax configuration found. Please configure your tax settings.
+      </div>
+    </div>
+  );
 
   const taxDueColor = summary.taxDue > 0 ? "#ef4444" : "#10b981";
 
