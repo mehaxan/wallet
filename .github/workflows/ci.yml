@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    name: Lint · Typecheck · Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: wallet
+          POSTGRES_USER: wallet
+          POSTGRES_PASSWORD: wallet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://wallet:wallet@localhost:5432/wallet
+      JWT_SECRET: ci-test-secret-change-me
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: DATABASE_URL=$DATABASE_URL pnpm db:migrate
+
+      - name: Typecheck
+        run: pnpm tsc --noEmit
+
+      - name: Unit tests
+        run: pnpm test
+
+  deploy:
+    name: Deploy to Railway
+    needs: lint-typecheck-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
