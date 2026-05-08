@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@/db";
 import { receiptJobs } from "@/db/schema";
 import { requireSession } from "@/lib/session";
@@ -11,9 +12,8 @@ interface OcrResult { date?: string; amount?: number; vendor?: string; currency?
 
 /**
  * POST /api/receipts
- * Accepts a multipart/form-data with `file` field.
- * Uploads to Cloudflare R2 (if configured) then enqueues OCR via Gemini Vision.
- * Without credentials, saves a mock job record for testing.
+ * Accepts multipart/form-data with `file` field.
+ * Uploads to Cloudflare R2 (SigV4 via @aws-sdk/client-s3) then runs OCR via Gemini Vision.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -25,30 +25,35 @@ export async function POST(req: NextRequest) {
     if (!file) return apiError("file is required");
 
     const R2_ACCOUNT_ID   = process.env.R2_ACCOUNT_ID;
-    const R2_ACCESS_KEY   = process.env.R2_ACCESS_KEY;
-    const R2_SECRET_KEY   = process.env.R2_SECRET_KEY;
-    const R2_BUCKET       = process.env.R2_BUCKET ?? "wallet-receipts";
+    const R2_ACCESS_KEY   = process.env.R2_ACCESS_KEY_ID;
+    const R2_SECRET_KEY   = process.env.R2_SECRET_ACCESS_KEY;
+    const R2_BUCKET       = process.env.R2_BUCKET_NAME ?? "wallet-receipts";
     const GEMINI_API_KEY  = process.env.GEMINI_API_KEY;
 
+    const arrayBuffer = await file.arrayBuffer();
     let fileUrl = `mock://${file.name}`;
 
-    // Upload to R2 if configured
+    // Upload to R2 using proper SigV4 via AWS SDK (compatible with Cloudflare R2)
     if (R2_ACCOUNT_ID && R2_ACCESS_KEY && R2_SECRET_KEY) {
-      const objectKey  = `${session.sub}/${Date.now()}-${file.name}`;
-      const r2Endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${objectKey}`;
+      const objectKey = `${session.sub}/${Date.now()}-${file.name}`;
 
-      const arrayBuffer = await file.arrayBuffer();
-      const putRes = await fetch(r2Endpoint, {
-        method:  "PUT",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-          "X-Custom-Auth-Key": R2_ACCESS_KEY, // simplified — use aws4 signing in production
-        },
-        body: arrayBuffer,
+      const s3 = new S3Client({
+        region: "auto",
+        endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId: R2_ACCESS_KEY, secretAccessKey: R2_SECRET_KEY },
       });
 
-      if (!putRes.ok) return apiError("R2 upload failed", 502);
-      fileUrl = r2Endpoint;
+      await s3.send(new PutObjectCommand({
+        Bucket:      R2_BUCKET,
+        Key:         objectKey,
+        Body:        Buffer.from(arrayBuffer),
+        ContentType: file.type || "application/octet-stream",
+      }));
+
+      const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+      fileUrl = R2_PUBLIC_URL
+        ? `${R2_PUBLIC_URL.replace(/\/$/, "")}/${objectKey}`
+        : `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${objectKey}`;
     }
 
     // Create job record
@@ -60,19 +65,18 @@ export async function POST(req: NextRequest) {
 
     // Run OCR if Gemini is configured
     if (GEMINI_API_KEY) {
-      const bytes   = await file.arrayBuffer();
-      const base64  = Buffer.from(bytes).toString("base64");
+      const base64   = Buffer.from(arrayBuffer).toString("base64");
       const mimeType = file.type || "image/jpeg";
 
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{
               parts: [
-                { text: "Extract the transaction data from this receipt. Return JSON: {date, amount, vendor, currency}. No markdown." },
+                { text: "Extract the transaction data from this receipt. Return JSON only: {date, amount, vendor, currency}. No markdown, no explanation." },
                 { inlineData: { mimeType, data: base64 } },
               ],
             }],
@@ -84,11 +88,12 @@ export async function POST(req: NextRequest) {
         const gd = await geminiRes.json() as { candidates: { content: { parts: { text: string }[] } }[] };
         const rawText = gd.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
         try {
-          const result: OcrResult = JSON.parse(rawText.trim());
+          const cleaned = rawText.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+          const result: OcrResult = JSON.parse(cleaned);
           await db.update(receiptJobs).set({ status: "done", result, updatedAt: new Date() }).where(eq(receiptJobs.id, job.id));
           return NextResponse.json({ ...job, status: "done", result }, { status: 201 });
         } catch {
-          await db.update(receiptJobs).set({ status: "failed", error: "JSON parse error" }).where(eq(receiptJobs.id, job.id));
+          await db.update(receiptJobs).set({ status: "failed", error: "JSON parse error", updatedAt: new Date() }).where(eq(receiptJobs.id, job.id));
         }
       }
     }
